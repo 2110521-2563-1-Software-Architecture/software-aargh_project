@@ -4,15 +4,14 @@ var path = require('path');
 var cookieParser = require('cookie-parser');
 var logger = require('morgan');
 var mongoose = require('mongoose');
+const dotenv = require('dotenv')
+dotenv.config();
 
 var indexRouter = require('./routes/index');
 var chatRouter = require('./routes/chat');
 var messageRouter = require('./routes/message');
 
-// const mongoConnectionString = "mongodb://admin:admin@cluster0-shard-00-00-6qnn1.mongodb.net:27017/fine?ssl=true&replicaSet=Cluster0-shard-0&authSource=admin&retryWrites=true&w=majority"
-const mongoConnectionString = "mongodb://admin:admin@chatroom-shard-00-02.6qnn1.mongodb.net:27017/chatroom?ssl=true&replicaSet=Cluster0-shard-0&authSource=admin&retryWrites=true&w=majority"
-// mongodb + srv://admin:<password>@chatroom.6qnn1.mongodb.net/<dbname>?retryWrites=true&w=majority
-mongoose.connect(mongoConnectionString, { useNewUrlParser: true, useUnifiedTopology: true });
+mongoose.connect(process.env.DB_ENDPOINT, { useNewUrlParser: true, useUnifiedTopology: true });
 
 var app = express();
 

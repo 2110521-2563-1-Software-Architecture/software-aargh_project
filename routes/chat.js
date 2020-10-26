@@ -10,7 +10,6 @@ router.post('/create', async (req, res) => {
     await UserService.insertChat({ cid: id, uid });
     res.send({ id, messages });
   } catch (error) {
-    console.log(error)
     res.status(400).send({ message: 'Unknown Error' });
   }
 });
