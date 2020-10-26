@@ -1,0 +1,11 @@
+version: '3'
+services:
+  backend:
+    container_name: backend
+    build: .
+    volumes:
+      - .:/backend
+    environment:
+      FLASK_ENV: development
+    ports:
+      - '4000:4000' 

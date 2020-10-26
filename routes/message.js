@@ -1,47 +1,44 @@
 var express = require('express');
 var router = express.Router();
-var User = require('../models/user.js');
-var Group = require('../models/group.js');
-var Message = require('../models/message.js');
-var Join = require('../models/join.js');
+const ChatService = require('../services/chat.js');
 
-const promiseQuery = (model, query) =>
-  new Promise((resolve, reject) =>
-    model.find(query, (err, result) => {
-      if (err) {
-        reject(err);
-      } else {
-        resolve(result);
-      }
-    })
-  );
+// const promiseQuery = (model, query) =>
+//   new Promise((resolve, reject) =>
+//     model.find(query, (err, result) => {
+//       if (err) {
+//         reject(err);
+//       } else {
+//         resolve(result);
+//       }
+//     })
+//   );
 
-const getListMessage = async (query) => {
-  const messages = await promiseQuery(Message, query);
-  const new_messages = await Promise.all(
-    messages.map(async (message) => {
-      const user = await promiseQuery(User, { _id: message.uid });
-      return { ...message._doc, user: user[0] };
-    })
-  );
-  return new_messages;
-};
+// const getListMessage = async (query) => {
+//   const messages = await promiseQuery(Message, query);
+//   const new_messages = await Promise.all(
+//     messages.map(async (message) => {
+//       const user = await promiseQuery(User, { _id: message.uid });
+//       return { ...message._doc, user: user[0] };
+//     })
+//   );
+//   return new_messages;
+// };
 
-router.post('/all', async (req, res) => {
-  const { cid, uid } = req.body;
-  Join.find({ uid, cid }, async (err, join) => {
-    if (err) {
-      throw err;
-    } else if (join.length) {
-      const read_at = join[0].read_at;
-      const queryRead = { send_at: { $lte: read_at }, cid };
-      const queryUnread = { send_at: { $gt: read_at }, cid };
-      const readMessage = await getListMessage(queryRead);
-      const unreadMessage = await getListMessage(queryUnread);
-      res.send({ readMessage, unreadMessage });
-    }
-  });
-});
+// router.post('/all', async (req, res) => {
+//   const { cid, uid } = req.body;
+//   Join.find({ uid, cid }, async (err, join) => {
+//     if (err) {
+//       throw err;
+//     } else if (join.length) {
+//       const read_at = join[0].read_at;
+//       const queryRead = { send_at: { $lte: read_at }, cid };
+//       const queryUnread = { send_at: { $gt: read_at }, cid };
+//       const readMessage = await getListMessage(queryRead);
+//       const unreadMessage = await getListMessage(queryUnread);
+//       res.send({ readMessage, unreadMessage });
+//     }
+//   });
+// });
 
 // router.get('/unread', (req, res) => {
 //   const { uid, gid } = req.query;
@@ -82,37 +79,46 @@ router.post('/all', async (req, res) => {
 //   });
 // });
 
-router.post('/send', (req, res) => {
-  const { cid, uid, content, type, reply_id = null } = req.body;
-  var query = Chat.findOne({ cid }).select('cid');
-  query.exec((err, group) => {
-    if (err) throw err;
-    else {
-      const message_model = new Message({
-        uid,
-        cid,
-        content,
-        type,
-        reply_id,
-        send_at: Date.now(),
-        unsent_at: null,
-      });
-      message_model.save((err, result) => {
-        if (err) {
-          res.send('ERROR');
-          throw err;
-        } else {
-          User.find({ _id: message_model.uid }, async (err, users) => {
-            let message = result._doc;
-            message.user = users[0];
-            Message.find({}).then((allMessages) => {
-              res.send({ message: message, messageOrder: allMessages.length });
-            });
-          });
-        }
-      });
-    }
-  });
+router.post('/send', async (req, res) => {
+  const { cid, uid, content, type = 'TEXT' } = req.body;
+  try {
+    const { messages } = await ChatService.insertMessage(cid, { uid, content, type, create_at: Date.now() })
+    res.send({ messages })
+  } catch (error) {
+    res.status(400).send({ message: 'Unknown Error' });
+  }
+
+
+
+  // var query = Chat.findOne({ cid }).select('cid');
+  // query.exec((err, group) => {
+  //   if (err) throw err;
+  //   else {
+  //     const message_model = new Message({
+  //       uid,
+  //       cid,
+  //       content,
+  //       type,
+  //       reply_id,
+  //       send_at: Date.now(),
+  //       unsent_at: null,
+  //     });
+  //     message_model.save((err, result) => {
+  //       if (err) {
+  //         res.send('ERROR');
+  //         throw err;
+  //       } else {
+  //         User.find({ _id: message_model.uid }, async (err, users) => {
+  //           let message = result._doc;
+  //           message.user = users[0];
+  //           Message.find({}).then((allMessages) => {
+  //             res.send({ message: message, messageOrder: allMessages.length });
+  //           });
+  //         });
+  //       }
+  //     });
+  //   }
+  // });
 });
 
 router.post('/unsend', (req, res) => {

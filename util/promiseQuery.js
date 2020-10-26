@@ -9,3 +9,4 @@ const promiseQuery = (model, query) =>
     })
   );
 
+module.exports = { promiseQuery }

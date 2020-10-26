@@ -1,98 +1,41 @@
 var express = require('express');
 var router = express.Router();
-var User = require('../models/user.js');
-var Otp = require('../models/otp.js');
-var Group = require('../models/group.js');
-var Join = require('../models/join.js');
+const UserService = require('../services/user');
 
-router.post('/register', (req, res) => {
-  const { name, username, password, phone_number, image= '' } = req.body;
-  const query = { username };
-  User.find(query, async (err, users) => {
-    if (err) {
-      throw err
-    } else if (users.length == 0) {
-      // create new user
-      const user_model = new User({ name, username, password, phone_number, image, status: '', confirmed_at: null });
-      await user_model.save((err, new_user) => {
-        if (err) throw err
-      });
-
-      // sending otp
-      const otp_model = new Otp({ uid: user_model.id, phone_number, otp: '1234' });
-      otp_model.save((err, new_otp) => {
-        if (err) throw err
-        res.send({ id: user_model.id, otp_id: new_otp.id })
-      });
-    } else {
-      throw 'Username is already used!'
-    }
-  });
+router.post('/register', async (req, res) => {
+  const { name, username, password, phone_number } = req.body;
+  try {
+    const { id } = await UserService.create({ name, username, password, phone_number })
+    res.send({ id })
+  } catch (error) {
+    if (error.code === 11000) res.status(400).send({ message: 'Username is already used!' });
+    else res.status(400).send({ message: 'Unknown Error' });
+  }
 });
 
-router.post('/otp', (req, res) => {
-  const { id, otp } = req.body;
-  Otp.find({ id, otp }, (err, otps) => {
-    if (err) {
-      throw err
-    } else if (otps.length === 1) {
-      
-      // confirm phone number
-      User.findOne({ id: otps[0].uid }, (err, user) => {
-        if (err) throw err;
-        else {
-          user.set({ confirmed_at: Date.now() });
-          user.save(function (err, update) {
-            if (err) throw err;
-            else {
-              return res.send('SUCCESS');
-            }
-          });
-        }
-      });
-
-    } else {
-      throw 'Wrong otp'
-    }
-  });
-});
-
-router.post('/login', (req, res) => {
+router.post('/login', async (req, res) => {
   const { username, password } = req.body;
-  const query = { username, password}
-  User.find(query, (err, users) => {
-    if (err) {
-      throw err
-    } else if (users.length === 1) {
-      res.send({ "id": users[0].id });
+  try {
+    const result = await UserService.find({ username, password })
+    if (result.length === 0) {
+      res.status('400').send({ message: 'Username or password is wrong!' });
     } else {
-      throw 'Username or password is wrong!'
+      const { name, _id: id, chat_list } = result[0]
+      res.send({ name, id, chat_list });
     }
-  });
+  } catch {
+    res.status(400).send({ message: 'Unknown Error' });
+  }
 });
 
-// router.get('/user-group', (req, res) => {
-//   Join.find({ uid: req.query.uid }, (err, joins) => {
-//     if (err) {
-//       res.send({ groups: [] });
-//     } else {
-//       const result = [];
-//       const promises = joins.map((join, index) =>
-//         Group.find({
-//           _id: join.gid
-//         }).then(function (groups) {
-//           if (groups.length) result.push(groups[0]);
-//         })
-//       );
-
-//       Promise.all(promises).then(() => {
-//         res.send({
-//           groups: result
-//         });
-//       });
-//     }
-
-//   });
-// });
+router.get('/user', async (req, res) => {
+  try {
+    const result = await UserService.find();
+    const usernames = result.map(({ _id, username, name }) => ({ id: _id, username, name }))
+    res.send(usernames);
+  } catch {
+    res.status(400).send({ message: 'Unknown Error' });
+  }
+});
 
 module.exports = router;

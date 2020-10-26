@@ -1,31 +1,33 @@
 var express = require('express');
 var router = express.Router();
-var User = require('../models/user.js');
-var Otp = require('../models/otp.js');
-var Chat = require('../models/chat.js');
-var Join = require('../models/join.js');
+const ChatService = require('../services/chat');
+const UserService = require('../services/user');
 
-router.post('/create', (req, res) => {
-  const { type, uid, invited_id, name } = req.body;
-  if(type === 'DIRECT') {
-    // เช็คว่าเคยมีแชทไหม 
-    // ไม่มี ->  สร้าง
-    // มี -> ส่ง cid
-  } else if (type === 'GROUP') {
-    // สร้าง
-    // ส่ง cid
+router.post('/create', async (req, res) => {
+  const { uid } = req.body; // list of user id
+  try {
+    const { id, messages } = await ChatService.create({ uid });
+    await UserService.insertChat({ cid: id, uid });
+    res.send({ id, messages });
+  } catch (error) {
+    console.log(error)
+    res.status(400).send({ message: 'Unknown Error' });
   }
-  
 });
 
-router.post('/all', (req, res) => {
-    const { uid } = req.body;
-    // ไปเอา ทุก join ของ uid นี้ รวมกับ chat แล้วก้ last message ของแต่ละ chat มา
-    // เช็คว่า ว่ามี noti ไหม (เทียบ last_read in join < create_at in last message)
-    // return list of chat with noti flag
-    
-  });
-
-
+router.post('/detail', async (req, res) => {
+  const { id } = req.body;
+  const result = await ChatService.find({ _id: id })
+  try {
+    if (result.length === 0) {
+      res.status('404').send({ message: 'Not found chat id!' });
+    } else {
+      const { messages, uid } = result[0]
+      res.send({ messages, uid });
+    }
+  } catch {
+    res.status(400).send({ message: 'Unknown Error' });
+  }
+});
 
 module.exports = router;
