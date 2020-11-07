@@ -7,6 +7,19 @@ var mongoose = require('mongoose');
 const dotenv = require('dotenv')
 dotenv.config();
 
+// Import passport
+require('./configs/passport');
+
+// firebase realtime database
+const admin = require('firebase-admin')
+var serviceAccount = require("./service-account.json");
+
+admin.initializeApp({
+  credential: admin.credential.cert(serviceAccount),
+  databaseURL: process.env.FIREBASE_URL
+});
+
+
 var indexRouter = require('./routes/index');
 var chatRouter = require('./routes/chat');
 var messageRouter = require('./routes/message');

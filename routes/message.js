@@ -1,158 +1,44 @@
-var express = require('express');
-var router = express.Router();
+const express = require('express');
+const router = express.Router();
 const ChatService = require('../services/chat.js');
+const passport = require('passport')
 
-// const promiseQuery = (model, query) =>
-//   new Promise((resolve, reject) =>
-//     model.find(query, (err, result) => {
-//       if (err) {
-//         reject(err);
-//       } else {
-//         resolve(result);
-//       }
-//     })
-//   );
+const admin = require('firebase-admin');
+const database = admin.database();
 
-// const getListMessage = async (query) => {
-//   const messages = await promiseQuery(Message, query);
-//   const new_messages = await Promise.all(
-//     messages.map(async (message) => {
-//       const user = await promiseQuery(User, { _id: message.uid });
-//       return { ...message._doc, user: user[0] };
-//     })
-//   );
-//   return new_messages;
-// };
-
-// router.post('/all', async (req, res) => {
-//   const { cid, uid } = req.body;
-//   Join.find({ uid, cid }, async (err, join) => {
-//     if (err) {
-//       throw err;
-//     } else if (join.length) {
-//       const read_at = join[0].read_at;
-//       const queryRead = { send_at: { $lte: read_at }, cid };
-//       const queryUnread = { send_at: { $gt: read_at }, cid };
-//       const readMessage = await getListMessage(queryRead);
-//       const unreadMessage = await getListMessage(queryUnread);
-//       res.send({ readMessage, unreadMessage });
-//     }
-//   });
-// });
-
-// router.get('/unread', (req, res) => {
-//   const { uid, gid } = req.query;
-//   Join.find({ uid, gid }, function (err, join) {
-//     if (err) {
-//       throw err;
-//     } else if (join.length) {
-//       const read_at = join[0].read_at;
-//       const query = { send_at: { $gt: read_at }, gid };
-//       Message.find(query)
-//         .sort('send_at')
-//         .exec((err, messages) => {
-//           if (err) throw err;
-//           else {
-//             const promises = messages.map((message) => {
-//               return new Promise((resolve, reject) => {
-//                 User.findById(message.uid, (err, user) => {
-//                   if (err) {
-//                     reject();
-//                   } else {
-//                     message._doc.user = user;
-//                     resolve();
-//                   }
-//                 });
-//               });
-//             });
-
-//             Promise.all(promises)
-//               .then(() => {
-//                 res.send({ messages: messages });
-//               })
-//               .catch((err) => {
-//                 res.send('FAIL');
-//               });
-//           }
-//         });
-//     }
-//   });
-// });
-
-router.post('/send', async (req, res) => {
-  const { cid, uid, content, type = 'TEXT' } = req.body;
-  try {
-    const { messages } = await ChatService.insertMessage(cid, { uid, content, type, create_at: Date.now() })
-    res.send({ messages })
-  } catch (error) {
-    res.status(400).send({ message: 'Unknown Error' });
-  }
-
-
-
-  // var query = Chat.findOne({ cid }).select('cid');
-  // query.exec((err, group) => {
-  //   if (err) throw err;
-  //   else {
-  //     const message_model = new Message({
-  //       uid,
-  //       cid,
-  //       content,
-  //       type,
-  //       reply_id,
-  //       send_at: Date.now(),
-  //       unsent_at: null,
-  //     });
-  //     message_model.save((err, result) => {
-  //       if (err) {
-  //         res.send('ERROR');
-  //         throw err;
-  //       } else {
-  //         User.find({ _id: message_model.uid }, async (err, users) => {
-  //           let message = result._doc;
-  //           message.user = users[0];
-  //           Message.find({}).then((allMessages) => {
-  //             res.send({ message: message, messageOrder: allMessages.length });
-  //           });
-  //         });
-  //       }
-  //     });
-  //   }
-  // });
-});
-
-router.post('/unsend', (req, res) => {
-  const { mid } = req.body;
-  Message.findOne({ id: mid }, (err, messages) => {
-    if (err) throw err;
-    else if (messages == null) return res.send('ERROR');
-    else {
-      messages.set({ unsent_at: Date.now() });
-      messages.save(function (err, update) {
-        if (err) throw err;
-        else {
-          return res.send('SUCCESS');
-        }
-      });
+router.post('/send',
+  passport.authenticate('jwt', { session: false }),
+  async (req, res) => {
+    const { _id } = req.user
+    const uid = _id.toString()
+    const { cid, content, type = 'TEXT' } = req.body;
+    try {
+      const chat = await ChatService.find({ _id: cid });
+      if (chat.length == 0) {
+        res.status(400).send("chat not found")
+        return;
+      }
+      const members = chat[0].uid
+      if (members.indexOf(uid) < 0) {
+        res.status(400).send("user is not in this chat!")
+        return;
+      }
+      await Promise.all(members.map(async memberId => {
+        let dbRef = database.ref('chat/' + memberId + '/' + cid)
+        await dbRef.set({
+          cid,
+          read: uid === memberId
+        })
+      }))
+      const chatRef = database.ref('message/' + cid)
+      const newMessage = chatRef.push();
+      await newMessage.set({
+        uid, cid, content, type
+      })
+      res.send("sent")
+    } catch (error) {
+      res.status(400).send('Unknown Error');
     }
-  });
-});
-
-router.post('/read', async (req, res) => {
-  const { uid, cid } = req.body;
-  Join.findOne({ uid, cid }, (err, joins) => {
-    if (err) throw err;
-    else if (joins == null) return res.send('ERROR');
-    else {
-      joins.set({ read_at: Date.now() });
-      joins.save(function (err, update) {
-        if (err) throw err;
-        else {
-          return res.send('SUCCESS');
-        }
-      });
-    }
-  });
-});
+  })
 
 module.exports = router;
