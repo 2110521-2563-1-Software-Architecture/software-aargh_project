@@ -12,10 +12,10 @@ require('./configs/passport');
 
 // firebase realtime database
 const admin = require('firebase-admin')
-var serviceAccount = require("./service-account.json");
+// var serviceAccount = require("./service-account.json");
 
 admin.initializeApp({
-  credential: admin.credential.cert(serviceAccount),
+  credential: admin.credential.applicationDefault(),
   databaseURL: process.env.FIREBASE_URL
 });
 
