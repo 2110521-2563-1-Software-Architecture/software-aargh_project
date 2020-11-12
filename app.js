@@ -3,6 +3,7 @@ var express = require('express');
 var path = require('path');
 var cookieParser = require('cookie-parser');
 var logger = require('morgan');
+var cors = require('cors');
 var mongoose = require('mongoose');
 const dotenv = require('dotenv')
 dotenv.config();
@@ -19,7 +20,6 @@ admin.initializeApp({
   databaseURL: process.env.FIREBASE_URL
 });
 
-
 var indexRouter = require('./routes/index');
 var chatRouter = require('./routes/chat');
 var messageRouter = require('./routes/message');
@@ -27,6 +27,8 @@ var messageRouter = require('./routes/message');
 mongoose.connect(process.env.DB_ENDPOINT, { useNewUrlParser: true, useUnifiedTopology: true });
 
 var app = express();
+
+app.use(cors());
 
 // view engine setup
 app.set('views', path.join(__dirname, 'views'));
