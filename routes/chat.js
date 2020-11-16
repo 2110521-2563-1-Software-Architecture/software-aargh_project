@@ -34,12 +34,14 @@ router.post('/detail',
   async (req, res) => {
     const { _id: user_id } = req.user
     const { id } = req.body;
+    console.log(user_id)
     const result = await ChatService.find({ _id: id })
     try {
       if (result.length === 0) {
         res.status('404').send({ message: 'Not found chat id!' });
       } else {
         const { messages, uid } = result[0]
+        console.log(uid)
         if (uid.indexOf(user_id) >= 0) {
           const query = uid.map(i => ({ _id: i }))
           const users = await UserService.find({ '$or': query })
@@ -48,8 +50,8 @@ router.post('/detail',
           res.status(400).send({ message: 'This user is not in the chat!!' });
         }
       }
-    } catch {
-      res.status(400).send({ message: 'Unknown Error' });
+    } catch (error) {
+      res.status(400).send({ message: 'Unknown Error', error });
     }
   });
 
